@@ -4,6 +4,11 @@ import uuid
 
 notes_bp = Blueprint('notes', __name__)
 
+"""
+TODO
+1. replace category and user IDs with names in the requests and responses when sending them to the frontend
+"""
+
 # ✅ Create a new note
 @notes_bp.route('/notes', methods=['POST'])
 def create_note():
@@ -48,17 +53,19 @@ def create_note():
 
 # ✅ Get all notes
 @notes_bp.route('/notes', methods=['GET'])
-def get_notes():
+def get_all_notes():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM notes")
+    cursor.execute("Select Notes.note_id, Notes.title , Notes.description, Notes.created_at , Notes.updated_at ,Notes.user_id, NoteCategories.category_name from Notes join  NoteCategories on NoteCategories.category_id = Notes.category_id")
+    # cursor.execute("SELECT * FROM notes")
+    #Select Notes.note_id, Notes.title , Notes.description, Notes.created_at , Notes.updated_at ,Notes.user_id, NoteCategories.category_name from Notes join  NoteCategories on NoteCategories.category_id = Notes.category_id
     notes = cursor.fetchall()
     
     cursor.close()
     conn.close()
     
-    return jsonify(notes)
+    return jsonify({"notes": notes, "count": len(notes)})
 
 # ✅ Get a single note by ID
 @notes_bp.route('/notes/<note_id>', methods=['GET'])
@@ -81,21 +88,32 @@ def get_note(note_id):
 @notes_bp.route('/notes/<note_id>', methods=['PUT'])
 def update_note(note_id):
     data = request.get_json()
+    print("data: ", data)
     title = data.get("title")
     description = data.get("description")
     category = data.get("category")
 
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
 
-    query = "UPDATE notes SET title = %s, description = %s, category = %s WHERE note_id = %s"
-    cursor.execute(query, (title, description, category, note_id))
-    conn.commit()
+    cursor.execute("SELECT user_id from Users where email = %s", (data["user_email"],))
+    current_user = cursor.fetchone()
+    userIdOfCurrentUser = current_user["user_id"]
 
-    cursor.close()
-    conn.close()
+    cursor.execute("SELECT user_id from notes where user_id = %s", (userIdOfCurrentUser,))
+    userIdForThisNote = cursor.fetchone()
 
-    return jsonify({"message": "Note updated successfully"}), 200
+    if userIdOfCurrentUser == userIdForThisNote:
+        query = "UPDATE notes SET title = %s, description = %s, category = %s WHERE note_id = %s"
+        # cursor.execute(query, (title, description, category, note_id))
+        # conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Note updated successfully"}), 200
+    else:
+        return jsonify({"message": "Invalid user id. Use your own email"}), 400
 
 # ✅ Delete a note
 @notes_bp.route('/notes/<note_id>', methods=['DELETE'])
@@ -110,3 +128,17 @@ def delete_note(note_id):
     conn.close()
 
     return jsonify({"message": "Note deleted successfully"}), 200
+
+# ✅ Delete all notes
+@notes_bp.route('/notes/all', methods=['DELETE'])
+def delete_all_notes():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM notes;")
+    conn.commit()
+    
+    cursor.close()
+    conn.close()
+
+    return jsonify({"message": "All Notes deleted successfully"}), 200
