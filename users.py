@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from dbconfig import get_connection
 import uuid
 
-from helper_functions import fetch_user_id_from_user_email
+from helper_functions import fetch_user_id_from_user_email, validate_request
 
 users_bp = Blueprint('users', __name__)
 
@@ -103,3 +103,46 @@ def update_user_details():
     finally:
         cursor.close()
         connection.close()
+
+@users_bp.route('/users/expenses', methods=['POST'])
+def find_expenses_by_user():
+    try:
+        data = request.json
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        validate_request(data)
+
+        user_id = fetch_user_id_from_user_email(data.get('user_email'))
+
+        cursor.execute("SELECT * FROM Expenses WHERE user_id = %s", (user_id,))
+        user_expenses = cursor.fetchall()
+
+        cursor.close()
+        connection.close()
+
+        return jsonify({"user_expenses": user_expenses, "count": len(user_expenses)})
+    except:
+        return jsonify({"error message": "something went wrong!"}), 404
+
+@users_bp.route('/users/expenses', methods=['DELETE'])
+def delete_user_expense_by_expense_id():
+    try:
+        user_id = request.args.get('user_id')
+        expense_id = request.args.get('expense_id')
+
+        if not user_id or not expense_id:
+            return jsonify({"error": "Missing user_id or expense_id"}), 400
+
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute("DELETE FROM Expenses WHERE expense_id = %s AND user_id = %s", (expense_id, user_id,))
+        connection.commit()
+    
+        cursor.close()
+        connection.close()
+
+        return jsonify({"message": "expense deleted successfully!"})
+    except:
+        return jsonify({"error message": "something went wrong!"}), 404

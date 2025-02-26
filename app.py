@@ -7,6 +7,8 @@ from tasks import tasks_bp
 from noteCategories import noteCategories_bp
 from links import links_bp
 from linkCategories import link_categories_bp
+from expenses import expenses_bp
+
 from dbconfig import *
 
 app = Flask(__name__)
@@ -17,6 +19,7 @@ app.register_blueprint(tasks_bp)
 app.register_blueprint(noteCategories_bp)
 app.register_blueprint(links_bp)
 app.register_blueprint(link_categories_bp)
+app.register_blueprint(expenses_bp)
 
 @app.route('/')
 def home():
